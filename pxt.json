@@ -1,0 +1,14 @@
+{
+    "name": "ovobot",
+    "dependencies": {
+        "core": "*",
+        "radio": "*"
+    },
+    "description": "",
+    "files": [
+        "ovobot.ts",
+        "README.md"
+    ],
+    "public": true,
+    "license": "MIT"
+}
