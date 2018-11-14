@@ -4,7 +4,9 @@
  * 想了解更详细的信息，请前往 https://makecode.microbit.org/blocks/custom
  */
 enum MoveDir {
+    //% block="forward"
     Forward,
+    //% block="backward"
     Backward
 }
 
@@ -22,14 +24,23 @@ enum LineSensor {
 }
 
 enum Color {
+    //% block="red"
     Red,
+    //% block="orange"
     Orange,
+    //% block="yellow"
     Yellow,
+    //% block="green"
     Green,
+    //% block="blue"
     Blue,
+    //% block="indigo"
     Indigo,
+    //% block="purple"
     Purple,
+    //% block="white"
     White,
+    //% block="black"
     Black
 }
 
@@ -466,7 +477,8 @@ namespace ovobot {
      * @param speed 前进速度, speed.min=0 speed.max=255 eg: 80
      * @param duration 运动时间(单位：秒)，duration.min=0 duration.max=999999 eg:3000
      */
-    //% block weight=95
+    //% blockId=move_robot block="move direction|%movedir |at speed %speed |duration (ms) duration%"
+    //% weight=95
     export function move(movedir: MoveDir, speed: number, duration: number) {
         while (!gyroWorked) {
             basic.pause(20);
@@ -523,7 +535,8 @@ namespace ovobot {
      * @param angle 旋转角度, eg: 90
      * @param duration 旋转时间，eg:1000 
      */
-    //% block weight=70
+    //% blockId=rotate_robot block="rotate angle|%angle |duration (ms) duration%"
+    //% weight=70
     export function rotate(angle: number, duration: number) {
         while (!gyroWorked) {
             basic.pause(20);
@@ -590,7 +603,8 @@ namespace ovobot {
      * @param right 右轮速度，right.min=-255 right.max=255 eg:0
      * @param duration 旋转时间，eg:0 
      */
-    //% block weight=60
+    //% blockId=set_rawMotor block="rawMotor |left %left|right %right |duration (ms) %duration"
+    //% weight=60
     export function rawMotor(left: number, right: number, duration: number) {
         setupMotorPWM();
         left = constract(left, -255, 255);
