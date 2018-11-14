@@ -134,6 +134,7 @@ namespace ovobot {
     let rotate_total = 0;
     let rotate_target = 0;
     let previous_rotateMicroTimes = 0;
+    let start_heading = 0;
 
     //private function
     function setupMotorPWM() {
@@ -387,7 +388,7 @@ namespace ovobot {
     }
 
     function updateLightStrength() {
-
+        _lightStrength = input.lightLevel();
     }
 
     function updateLineSensor() {
@@ -408,6 +409,20 @@ namespace ovobot {
                     updateDistance();
                     updateLightStrength();
                     updateLineSensor();
+                    if (robot.rotateSpeed != 0) {
+                        //music.playTone(262, music.beat(BeatFraction.Whole))
+                        let current = input.runningTimeMicros();
+                        let delta = current - previous_rotateMicroTimes;
+                        robot.heading = start_heading + robot.rotateSpeed * delta / 1000000.0;
+                        robot.heading = robot.heading % 360;
+                        if (robot.heading < 0) {
+                            robot.heading += 360;
+                        }
+                        if (robot.heading > 360) {
+                            robot.heading -= 360;
+                        }
+                        appMove(robot.heading, robot.speed, RobotMoveType.RobotMove);
+                    }
                     pidController();
                     // serial.writeNumber(_lineSensorLeft);
                     // serial.writeString("   ");
@@ -578,23 +593,13 @@ namespace ovobot {
         while (!gyroWorked) {
             basic.pause(20);
         }
+        if (angleSpeed == robot.rotateSpeed) {
+            return;
+        }
         angleSpeed = constract(angleSpeed, -255, 255);
         robot.rotateSpeed = angleSpeed;
+        start_heading = robot.heading;
         previous_rotateMicroTimes = input.runningTimeMicros();
-        continueRotateAtSpeed(robot.heading);
-        //appMove(robot.heading, robot.speed, RobotMoveType.RobotMove);
-    }
-
-    function continueRotateAtSpeed(startAngle: number) {
-        if (robot.rotateSpeed != 0) {
-            let current = input.runningTimeMicros();
-            let delta = current - previous_rotateMicroTimes;
-            robot.heading = startAngle + robot.rotateSpeed * delta / 1000000.0;
-            appMove(robot.heading, robot.speed, RobotMoveType.RobotMove);
-            control.inBackground(() => {
-                continueRotateAtSpeed(startAngle);
-            });
-        }
     }
 
     /**
