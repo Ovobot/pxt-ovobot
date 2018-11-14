@@ -1,0 +1,20 @@
+{
+  "LineSensor.Left|block": "左侧",
+  "LineSensor.Right|block": "右侧",
+  "ovobot.initGyroSensor|block": "初始化陀螺仪",
+  "ovobot.move|block": "移动|方向 %movedir|速度 %speed|时间 %duration",
+  "ovobot.rawMotor|block": "驱动电机|左轮 %left|右轮 %right|时间 %duration",
+  "ovobot.readDistance|block": "超声波距离",
+  "ovobot.readLightStrength|block": "光线强度",
+  "ovobot.readLineSensorData|block": "检测黑线 %lineSensor",
+  "ovobot.rotateAtSpeed|block": "旋转速度 %angleSpeed",
+  "ovobot.rotate|block": "旋转|角度 %angle|时间 %duration",
+  "ovobot.setSpeed|block": "移动速度 %speed",
+  "ovobot.setledGroupColor|block": "设置彩色灯颜色|左侧 %lCol|右侧 %rCol",
+  "ovobot.stopMove|block": "停止",
+  "ovobot|block": "ovobot",
+  "{id:category}DesiredMove_t": "DesiredMove_t",
+  "{id:category}ovobot": "ovobot",
+  "{id:category}Robot": "Robot",
+  "{id:category}Stdev_t": "Stdev_t"
+}
