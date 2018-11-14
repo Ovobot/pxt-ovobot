@@ -477,7 +477,7 @@ namespace ovobot {
      * @param speed 前进速度, speed.min=0 speed.max=255 eg: 80
      * @param duration 运动时间(单位：秒)，duration.min=0 duration.max=999999 eg:3000
      */
-    //% blockId=move_robot block="move direction|%movedir |at speed %speed |duration (ms) duration%"
+    //% blockId=move_robot block="move direction|%movedir |at speed %speed |duration (ms) %duration"
     //% weight=95
     export function move(movedir: MoveDir, speed: number, duration: number) {
         while (!gyroWorked) {
@@ -535,7 +535,7 @@ namespace ovobot {
      * @param angle 旋转角度, eg: 90
      * @param duration 旋转时间，eg:1000 
      */
-    //% blockId=rotate_robot block="rotate angle|%angle |duration (ms) duration%"
+    //% blockId=rotate_robot block="rotate angle|%angle |duration (ms) %duration"
     //% weight=70
     export function rotate(angle: number, duration: number) {
         while (!gyroWorked) {
