@@ -7,6 +7,8 @@
     "description": "",
     "files": [
         "ovobot.ts",
+        "_locales/zh/ovobot-strings.json",
+        "_locales/zh/ovobot-jsdoc-strings.json",
         "README.md"
     ],
     "public": true,
