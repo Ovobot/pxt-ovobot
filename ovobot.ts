@@ -620,6 +620,20 @@ namespace ovobot {
     }
 
     /**
+     * TODO: 独立设置左右轮速度函数。
+     * @param left 左轮速度,left.min=-255 left.max=255 eg: 0
+     * @param right 右轮速度，right.min=-255 right.max=255 eg:0
+     */
+    //% blockId=set_rawMotor_withpwm block="rawMotor |left %left|right %right"
+    //% weight=55
+    export function rawMotorWithPwm(left: number, right: number) {
+        setupMotorPWM();
+        left = constract(left, -255, 255);
+        right = constract(right, -255, 255);
+        moveMotorOut(left, right);
+    }
+
+    /**
      * TODO: 获取超声波传感器与前方障碍物的距离函数。
      */
     //% block weight=50
