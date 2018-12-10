@@ -75,7 +75,7 @@ class Robot {
 /**
  * 自定义图形块
  */
-//% weight=100 color=#0fbc11 icon=""
+//% weight=100 color=#00d1b5 icon=""
 //% block="ovobot"
 namespace ovobot {
     const BOOT = 0x80
