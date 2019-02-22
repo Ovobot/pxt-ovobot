@@ -23,6 +23,20 @@ enum LineSensor {
     Right
 }
 
+enum clock_sel_e {
+    INV_CLK_INTERNAL = 0,
+    INV_CLK_PLL,
+    NUM_CLK
+}
+
+enum gyro_fsr_e {
+    INV_FSR_250DPS = 0,
+    INV_FSR_500DPS,
+    INV_FSR_1000DPS,
+    INV_FSR_2000DPS,
+    NUM_GYRO_FSR
+}
+
 enum Color {
     //% block="red"
     Red,
@@ -42,6 +56,14 @@ enum Color {
     White,
     //% block="black"
     Black
+}
+
+enum accel_fsr_e {
+    INV_FSR_2G = 0,
+    INV_FSR_4G,
+    INV_FSR_8G,
+    INV_FSR_16G,
+    NUM_ACCEL_FSR
 }
 
 class Stdev_t {
@@ -78,24 +100,21 @@ class Robot {
 //% weight=100 color=#00d1b5 icon="\uf036"
 //% block="ovobot"
 namespace ovobot {
-    const BOOT = 0x80
-    const L3GD20_CTRL_REG5 = 0x24
-    const L3GD20_CTRL_REG1 = 0x20
-    const MODE_ACTIVE = 0x08
-    const OUTPUT_DATARATE_3 = 0x80
-    const AXES_ENABLE = 0x04
-    const BANDWIDTH_4 = 0x30
-    const L3GD20_CTRL_REG4 = 0x23
-    const BLOCK_DATA_UPDATE_CONTINUOUS = 0x00
-    const BLE_MSB = 0x40
-    const FULLSCALE_2000 = 0x20
+    const MPU_RA_PWR_MGMT_1 = 0x6b
+    const MPU6887_BIT_RESET = 0x80
+    const MPU_RA_SIGNAL_PATH_RESET = 0x68
+    const MPU_RA_GYRO_CONFIG = 0x1b
+    const MPU_RA_ACCEL_CONFIG = 0x1c
+    const MPU_RA_CONFIG = 0x1a
+    const MPU_RA_SMPLRT_DIV = 0x19
+    const MPU_RA_INT_PIN_CFG = 0x37
+    const MPU6887_WHO_AM_I_CONST = 0x2e
+    const MPU_RA_WHO_AM_I = 0x75
+    const MPU_RA_GYRO_YOUT_H = 0x45
     const SONAR_ADDRESS = 0x52
     const LED_ADDRESS = 0x53
-    const L3GD20_ADDRESS = 0x6A
-    const L3GD20_ID = 0xD4
-    const L3GD20_GYRO_OUT = 0x2C
-    const L3GD20_WHO_AM_I = 0x0F
-    const CALIBRATING_GYRO_CYCLES = 350
+    const MPU_ADDRESS = 0x69
+    const CALIBRATING_GYRO_CYCLES = 300
     const lowBright = 8
     const LineSensor_ADDRESS = 0x54
     let _distance: number = 9999;
@@ -103,7 +122,6 @@ namespace ovobot {
     let _lineSensorLeft = 0;
     let _lineSensorRight = 0;
     let _initSysEvent = 0;
-    let _myNum = 1;
     let gyroZRaw = 0;
     let gyroZ = 0;
     let gyroZero = 0;
@@ -135,7 +153,9 @@ namespace ovobot {
     let rotate_target = 0;
     let previous_rotateMicroTimes = 0;
     let start_heading = 0;
-
+    let isSonicEnabled = false;
+    let isLineSensorEnable = false;
+    let needPidCtl = true;
     //private function
     function setupMotorPWM() {
         if (!initMotor) {
@@ -219,23 +239,23 @@ namespace ovobot {
 
     function gyroUpdate() {
         gyroZRaw = readGyroZ();
+
         gyroZ = gyroZRaw;
         if (!isGyroCalibrationComplete()) {
             performAcclerationCalibration(32);
         }
+
         applyGyroZero();
     }
-
-
 
     //calc yaw attitude
     function angleUpdate() {
         let delta = 0;
         let current = input.runningTimeMicros();
         delta = current - previous;
-        yaw -= gyroZ * delta * 7 / 10000000;
-        attitudeYaw = yaw;
-        attitudeYaw %= 3600;
+        yaw -= gyroZ * delta / 16.4;
+        yaw %= 360000000;
+        attitudeYaw = yaw * 0.00001;
         if (attitudeYaw < 0)
             attitudeYaw += 3600;
         previous = current;
@@ -248,6 +268,7 @@ namespace ovobot {
             return minVal;
         }
         return val;
+
     }
 
     function pidController() {
@@ -283,9 +304,9 @@ namespace ovobot {
 
             yaw_out_inner = yaw_angle_error * 15.0;// 2
 
-            yaw_rate_error = yaw_out_inner + gyroZ * 7 / 100.0;
+            yaw_rate_error = yaw_out_inner + gyroZ * 10 / 164.0;
             let PTerm = yaw_rate_error * 5 / 10.0;
-            let ITerm = lastITerm + yaw_rate_error * 0.0;
+            let ITerm = lastITerm + yaw_rate_error * 0.005;
             constract(ITerm, -50, 50);
             lastITerm = ITerm;
             yaw_out = PTerm + ITerm;
@@ -295,7 +316,7 @@ namespace ovobot {
                 speed_out -= 80;
             else if (speed_out > 20)
                 speed_out += 80;
-            speed_out = constract(speed_out, -200, 200);
+            speed_out = constract(speed_out, -230, 230);
             left_out = speed_out + yaw_out;
             right_out = speed_out - yaw_out;
             left_out = constract(left_out, -255, 255);
@@ -345,44 +366,63 @@ namespace ovobot {
         });
     }
 
-    function l3gd20I2CWrite(address: number, reg: number, data: number) {
+    function mpu6887I2CWrite(address: number, reg: number, data: number) {
         let buf = pins.createBuffer(2);
         buf[0] = reg;
         buf[1] = data;
         pins.i2cWriteBuffer(address, buf);
     }
 
-    function l3gd20Init() {
+    function mpu6887Init() {
         calibratingG = 0;
         gyroZRaw = 0;
         gyroZ = 0;
         gyroZero = 0;
-        l3gd20I2CWrite(L3GD20_ADDRESS, L3GD20_CTRL_REG5, BOOT);
+        mpu6887I2CWrite(MPU_ADDRESS, MPU_RA_PWR_MGMT_1, MPU6887_BIT_RESET);
         basic.pause(100);
-        l3gd20I2CWrite(L3GD20_ADDRESS, L3GD20_CTRL_REG1, MODE_ACTIVE | OUTPUT_DATARATE_3 | AXES_ENABLE | BANDWIDTH_4);
-        basic.pause(1);
-        l3gd20I2CWrite(L3GD20_ADDRESS, L3GD20_CTRL_REG4, BLOCK_DATA_UPDATE_CONTINUOUS | BLE_MSB | FULLSCALE_2000);
-        calibratingG = 1000;
+        mpu6887I2CWrite(MPU_ADDRESS, MPU_RA_SIGNAL_PATH_RESET, 0x07);
+        basic.pause(100);
+        mpu6887I2CWrite(MPU_ADDRESS, MPU_RA_PWR_MGMT_1, 0);
+        basic.pause(100);
+        mpu6887I2CWrite(MPU_ADDRESS, MPU_RA_PWR_MGMT_1, clock_sel_e.INV_CLK_PLL);
+        mpu6887I2CWrite(MPU_ADDRESS, MPU_RA_GYRO_CONFIG, gyro_fsr_e.INV_FSR_2000DPS << 3);
+        mpu6887I2CWrite(MPU_ADDRESS, MPU_RA_ACCEL_CONFIG, accel_fsr_e.INV_FSR_8G << 3);
+        mpu6887I2CWrite(MPU_ADDRESS, MPU_RA_CONFIG, 4);
+        mpu6887I2CWrite(MPU_ADDRESS, MPU_RA_SMPLRT_DIV, 0); // Get Divider
+
+        mpu6887I2CWrite(MPU_ADDRESS, MPU_RA_INT_PIN_CFG, 0 << 7 | 0 << 6 | 0 << 5 | 1 << 4 | 0 << 3 | 0 << 2 | 0 << 1 | 0 << 0);  // INT_ANYRD_2CLEAR, BYPASS_EN
+        calibratingG = CALIBRATING_GYRO_CYCLES;
     }
 
-    function l3gd20Detect(): boolean {
-        let who = 0x0F;
-        pins.i2cWriteNumber(L3GD20_ADDRESS, L3GD20_WHO_AM_I, NumberFormat.UInt8BE);
-        who = pins.i2cReadNumber(L3GD20_ADDRESS, NumberFormat.UInt8BE);
-        if (who != L3GD20_ID) {
+    function mpu6887Detect(): boolean {
+        let who = 0x00;
+        pins.i2cWriteNumber(MPU_ADDRESS, MPU_RA_WHO_AM_I, NumberFormat.UInt8BE);
+        who = pins.i2cReadNumber(MPU_ADDRESS, NumberFormat.UInt8BE);
+        if (who != MPU6887_WHO_AM_I_CONST) {
             basic.showString("gyro not found");
             return false;
         }
         return true;
     }
 
+    function sonicEnable() {
+        let buf = pins.createBuffer(2);
+        buf[0] = 0x00;
+        buf[1] = 0x01;
+        pins.i2cWriteBuffer(SONAR_ADDRESS, buf);
+        isSonicEnabled = true;
+    }
+
     function readGyroZ(): number {
-        pins.i2cWriteNumber(L3GD20_ADDRESS, L3GD20_GYRO_OUT | 0x80, NumberFormat.UInt8BE);
-        let gyrozVal = pins.i2cReadNumber(L3GD20_ADDRESS, NumberFormat.Int16BE);
+        pins.i2cWriteNumber(MPU_ADDRESS, MPU_RA_GYRO_YOUT_H, NumberFormat.UInt8BE, true);
+        let gyrozVal = pins.i2cReadNumber(MPU_ADDRESS, NumberFormat.Int16BE);
         return gyrozVal;
     }
 
     function updateDistance() {
+        let buf = pins.createBuffer(1);
+        buf[0] = 0x01;
+        pins.i2cWriteBuffer(SONAR_ADDRESS, buf, true);
         let sonarVal = pins.i2cReadNumber(SONAR_ADDRESS, NumberFormat.Int16LE);
         _distance = sonarVal / 29;
     }
@@ -392,6 +432,9 @@ namespace ovobot {
     }
 
     function updateLineSensor() {
+        let buf = pins.createBuffer(1);
+        buf[0] = 0x01;
+        pins.i2cWriteBuffer(LineSensor_ADDRESS, buf, true);
         let val = pins.i2cReadNumber(LineSensor_ADDRESS, NumberFormat.Int32LE);
         _lineSensorRight = val >> 16;
         _lineSensorLeft = val & 0xffff;
@@ -400,17 +443,18 @@ namespace ovobot {
     function registerSysPeriodEvent() {
         if (!_initSysEvent) {
             _initSysEvent = 1;
-            l3gd20Init();
-            l3gd20Detect();
+            mpu6887Init();
+            mpu6887Detect();
             setInterval(function () {
                 gyroUpdate();
                 if (gyroWorked) {
                     angleUpdate();
-                    updateDistance();
+                    if (isSonicEnabled) {
+                        updateDistance();
+                    }
                     updateLightStrength();
                     updateLineSensor();
                     if (robot.rotateSpeed != 0) {
-                        //music.playTone(262, music.beat(BeatFraction.Whole))
                         let current = input.runningTimeMicros();
                         let delta = current - previous_rotateMicroTimes;
                         robot.heading = start_heading + robot.rotateSpeed * delta / 1000000.0;
@@ -423,11 +467,9 @@ namespace ovobot {
                         }
                         appMove(robot.heading, robot.speed, RobotMoveType.RobotMove);
                     }
-                    pidController();
-                    // serial.writeNumber(_lineSensorLeft);
-                    // serial.writeString("   ");
-                    // serial.writeNumber(_lineSensorRight);
-                    // serial.writeString("\n");
+                    if (needPidCtl) {
+                        pidController();
+                    }
                 }
             }, 6);
         }
@@ -440,14 +482,15 @@ namespace ovobot {
     //% blockId=set_ledGroup_Color block="set led color|left %lCol|right %rCol"
     //% weight=96
     export function setledGroupColor(lCol: Color, rCol: Color) {
-        let buf = pins.createBuffer(7);
+        let buf = pins.createBuffer(8);
         buf[0] = 0x00;
-        buf[1] = ((selectColors[lCol] >> 8) & 0xff) / lowBright;
-        buf[2] = ((selectColors[lCol] >> 16) & 0xff) / lowBright;
-        buf[3] = (selectColors[lCol] & 0xff) / lowBright;
-        buf[4] = ((selectColors[rCol] >> 8) & 0xff) / lowBright;
-        buf[5] = ((selectColors[rCol] >> 16) & 0xff) / lowBright;
-        buf[6] = (selectColors[rCol] & 0xff) / lowBright;
+        buf[1] = 0x00;
+        buf[2] = ((selectColors[lCol] >> 8) & 0xff) / lowBright;
+        buf[3] = ((selectColors[lCol] >> 16) & 0xff) / lowBright;
+        buf[4] = (selectColors[lCol] & 0xff) / lowBright;
+        buf[5] = ((selectColors[rCol] >> 8) & 0xff) / lowBright;
+        buf[6] = ((selectColors[rCol] >> 16) & 0xff) / lowBright;
+        buf[7] = (selectColors[rCol] & 0xff) / lowBright;
         pins.i2cWriteBuffer(LED_ADDRESS, buf);
     }
 
@@ -498,6 +541,7 @@ namespace ovobot {
         while (!gyroWorked) {
             basic.pause(20);
         }
+        needPidCtl = true;
         setupMotorPWM();
         let sp = constract(speed, 0, 255);
         speed = sp;
@@ -534,6 +578,7 @@ namespace ovobot {
             basic.pause(20);
         }
         setupMotorPWM();
+        needPidCtl = true;
         let sp = constract(speed, 0, 255);
         speed = sp;
         if (movedir == MoveDir.Backward) {
@@ -556,6 +601,7 @@ namespace ovobot {
         while (!gyroWorked) {
             basic.pause(20);
         }
+        needPidCtl = true;
         rotate_start = input.runningTimeMicros();
         rotate_total = duration * 1e3;
         rotate_target = angle;
@@ -593,6 +639,7 @@ namespace ovobot {
         while (!gyroWorked) {
             basic.pause(20);
         }
+        needPidCtl = true;
         if (angleSpeed == robot.rotateSpeed) {
             return;
         }
@@ -612,6 +659,7 @@ namespace ovobot {
     //% weight=60
     export function rawMotor(left: number, right: number, duration: number) {
         setupMotorPWM();
+        needPidCtl = false;
         left = constract(left, -255, 255);
         right = constract(right, -255, 255);
         moveMotorOut(left, right);
@@ -628,6 +676,7 @@ namespace ovobot {
     //% weight=55
     export function rawMotorWithPwm(left: number, right: number) {
         setupMotorPWM();
+        needPidCtl = false;
         left = constract(left, -255, 255);
         right = constract(right, -255, 255);
         moveMotorOut(left, right);
@@ -638,6 +687,7 @@ namespace ovobot {
      */
     //% block weight=50
     export function readDistance(): number {
+        sonicEnable();
         return _distance;
     }
 
@@ -656,6 +706,7 @@ namespace ovobot {
     //% block="read line sensor from %lineSensor"
     //% weight=40
     export function readLineSensorData(lineSensor: LineSensor): number {
+        isLineSensorEnable = true;
         if (lineSensor == LineSensor.Left) {
             return _lineSensorLeft;
         } else {
