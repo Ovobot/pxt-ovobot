@@ -13,5 +13,7 @@
         "README.md"
     ],
     "public": true,
-    "license": "MIT"
+    "license": "MIT",
+    "preferredEditor": "tsprj",
+    "installedVersion": "workspace:a104e89d-9bff-4d12-0ccd-cff1f3b4bd57"
 }

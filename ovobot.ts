@@ -111,6 +111,7 @@ namespace ovobot {
     const MPU6887_WHO_AM_I_CONST = 0x2e
     const MPU_RA_WHO_AM_I = 0x75
     const MPU_RA_GYRO_YOUT_H = 0x45
+    const MPU_RA_GYRO_ZOUT_H = 0x47
     const SONAR_ADDRESS = 0x52
     const LED_ADDRESS = 0x53
     const MPU_ADDRESS = 0x69
@@ -306,7 +307,7 @@ namespace ovobot {
 
             yaw_rate_error = yaw_out_inner + gyroZ * 10 / 164.0;
             let PTerm = yaw_rate_error * 5 / 10.0;
-            let ITerm = lastITerm + yaw_rate_error * 0.005;
+            let ITerm = lastITerm + yaw_rate_error * 0.000;
             constract(ITerm, -50, 50);
             lastITerm = ITerm;
             yaw_out = PTerm + ITerm;
@@ -414,7 +415,7 @@ namespace ovobot {
     }
 
     function readGyroZ(): number {
-        pins.i2cWriteNumber(MPU_ADDRESS, MPU_RA_GYRO_YOUT_H, NumberFormat.UInt8BE, true);
+        pins.i2cWriteNumber(MPU_ADDRESS, MPU_RA_GYRO_ZOUT_H, NumberFormat.UInt8BE, true);
         let gyrozVal = pins.i2cReadNumber(MPU_ADDRESS, NumberFormat.Int16BE);
         return gyrozVal;
     }
